@@ -50,7 +50,7 @@
          (list current-val (find-lesser-in-list current-val remaining-list))
          (lesser-decadents remaining-list)))))
 
-;; Part 1.4: windowed-average
+;; Part 1.4: windowed-average (CORRECTED)
 (define (take lst n)
   (if (or (= n 0) (null? lst))
       '()
@@ -62,9 +62,10 @@
       (+ (car lst) (sum (cdr lst)))))
 
 (define (windowed-average size data)
-    (if (< (length data) size)
-        '()
-        (cons (/ (sum (take data size)) size) (windowed-average size (cdr data)))))
+  (cond ((< size 1) '()) ;<- FIX: Handles size 0 or less
+        ((< (length data) size) '())
+        (else (cons (/ (sum (take data size)) size)
+                    (windowed-average size (cdr data))))))
 
 ;;-----------------------------------------------------------------------------
 ;; Problem 2: Dealing with Duration
@@ -79,16 +80,34 @@
       ((= len 1) (cons 0 (cons 0 duration)))
       (else '(0 0 0)))))
 
-;; Part 2.2: fmt-duration
+;; Part 2.2: fmt-duration (CORRECTED)
 (define (pluralize value unit)
   (if (= value 1)
       (string-append (number->string value) " " unit)
       (string-append (number->string value) " " unit "s")))
 
-(define (join-strings lst sep)
-  (if (or (null? lst) (null? (cdr lst)))
-      (if (null? lst) "" (car lst))
-      (string-append (car lst) sep (join-strings (cdr lst) sep))))
+;; Helper to reverse a list (needed for complex join)
+(define (my-reverse lst)
+  (let loop ((original lst) (rev '()))
+    (if (null? original)
+        rev
+        (loop (cdr original) (cons (car original) rev)))))
+
+;; Helper to join list items with ", "
+(define (join-with-comma lst)
+  (if (null? (cdr lst))
+      (car lst)
+      (string-append (car lst) ", " (join-with-comma (cdr lst)))))
+
+;; Helper that joins duration parts with "and" and ", and" correctly
+(define (join-duration-parts parts)
+  (cond ((= (length parts) 1) (car parts))
+        ((= (length parts) 2) (string-append (car parts) " and " (cadr parts)))
+        (else
+         (let* ((rev-parts (my-reverse parts))
+                (last-part (car rev-parts))
+                (all-but-last (my-reverse (cdr rev-parts))))
+           (string-append (join-with-comma all-but-last) ", and " last-part)))))
 
 (define (fmt-duration duration)
     (let* ((padded (pad-duration duration))
@@ -101,7 +120,7 @@
       (let ((parts (append h-str m-str s-str)))
         (if (null? parts)
             "0 Seconds"
-            (join-strings parts ", ")))))
+            (join-duration-parts parts))))) ;<- FIX: Uses new join logic
 
 ;; Part 2.3: add-durations
 (define (simplify-duration dur)
