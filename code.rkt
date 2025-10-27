@@ -168,7 +168,4 @@
                      (item-total (* quantity price (- 1 (/ discount 100)))))
                 (+ item-total (calculate-order-cost rest)))))))
   (let ((total-cost (calculate-order-cost order)))
-    (/ (round (* total-cost 100)) 100.0)))```
-
-
-Now, upload this new file. The combination of the corrected function names and the correctly saved file should solve the problem.
+    (/ (round (* total-cost 100)) 100.0)))
