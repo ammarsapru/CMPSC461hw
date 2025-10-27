@@ -5,22 +5,22 @@
 ;;-----------------------------------------------------------------------------
 
 ;; Part 1.1: clamp-bounds
-(define (clamp-bounds lst lower upper)
-  (if (null? lst)
+(define (clamp-bounds ub lb data)
+  (if (null? data)
       '()
-      (let ((current (car lst))
-            (rest (clamp-bounds (cdr lst) lower upper)))
+      (let ((current (car data))
+            (rest (clamp-bounds ub lb (cdr data))))
         (cond
-          ((< current lower) (cons lower rest))
-          ((> current upper) (cons upper rest))
+          ((< current lb) (cons lb rest))
+          ((> current ub) (cons ub rest))
           (else (cons current rest))))))
 
 ;; Part 1.2: cleanup-data
-(define (cleanup-data lst)
-  (if (null? lst)
+(define (cleanup-data data)
+  (if (null? data)
       '()
-      (let ((item (car lst))
-            (rest-cleaned (cleanup-data (cdr lst))))
+      (let ((item (car data))
+            (rest-cleaned (cleanup-data (cdr data))))
         (cond
           ((boolean? item) rest-cleaned)
           ((string? item) (cons (string-upcase item) rest-cleaned))
@@ -29,9 +29,9 @@
                (cons (/ item 2) rest-cleaned)
                (cons (- (* item 3) 1) rest-cleaned)))
           ((list? item) (append (cleanup-data item) rest-cleaned))
-          (else rest-cleaned))))) ; Should not happen based on problem description
+          (else rest-cleaned)))))
 
-;; Part 1.3: lesser-descendents
+;; Part 1.3: lesser-decadents
 (define (find-lesser-in-list value-to-compare lst)
   (if (null? lst)
       '()
@@ -41,14 +41,14 @@
             (cons current rest)
             rest))))
 
-(define (lesser-descendents lst)
-  (if (null? lst)
+(define (lesser-decadents data)
+  (if (null? data)
       '()
-      (let ((current-val (car lst))
-            (remaining-list (cdr lst)))
+      (let ((current-val (car data))
+            (remaining-list (cdr data)))
         (cons
          (list current-val (find-lesser-in-list current-val remaining-list))
-         (lesser-descendents remaining-list)))))
+         (lesser-decadents remaining-list)))))
 
 ;; Part 1.4: windowed-average
 (define (take lst n)
@@ -61,27 +61,23 @@
       0
       (+ (car lst) (sum (cdr lst)))))
 
-(define (windowed-average lst N)
-  (cond
-    ((< N 1) '())
-    ((> N (length lst)) '())
-    (else
-     (let ((current-window (take lst N)))
-       (cons (/ (sum current-window) N)
-             (windowed-average (cdr lst) N))))))
+(define (windowed-average size data)
+    (if (< (length data) size)
+        '()
+        (cons (/ (sum (take data size)) size) (windowed-average size (cdr data)))))
 
 ;;-----------------------------------------------------------------------------
-;; Problem 2: Dealing with Durations
+;; Problem 2: Dealing with Duration
 ;;-----------------------------------------------------------------------------
 
 ;; Part 2.1: pad-duration
-(define (pad-duration dur)
-  (let ((len (length dur)))
+(define (pad-duration duration)
+  (let ((len (length duration)))
     (cond
-      ((= len 3) dur)
-      ((= len 2) (cons 0 dur))
-      ((= len 1) (cons 0 (cons 0 dur)))
-      (else '())))) ; Assuming valid inputs of length 1, 2, or 3
+      ((= len 3) duration)
+      ((= len 2) (cons 0 duration))
+      ((= len 1) (cons 0 (cons 0 duration)))
+      (else '(0 0 0)))))
 
 ;; Part 2.2: fmt-duration
 (define (pluralize value unit)
@@ -94,47 +90,41 @@
       (if (null? lst) "" (car lst))
       (string-append (car lst) sep (join-strings (cdr lst) sep))))
 
-(define (fmt-duration dur)
-  (let* ((padded (pad-duration dur))
-         (h (car padded))
-         (m (cadr padded))
-         (s (caddr padded))
-         (h-str (if (> h 0) (list (pluralize h "Hour")) '()))
-         (m-str (if (> m 0) (list (pluralize m "Minute")) '()))
-         (s-str (if (> s 0) (list (pluralize s "Second")) '())))
-    (let ((parts (append h-str m-str s-str)))
-      (if (null? parts)
-          "0 Seconds"
-          (join-strings parts ", ")))))
+(define (fmt-duration duration)
+    (let* ((padded (pad-duration duration))
+           (h (car padded))
+           (m (cadr padded))
+           (s (caddr padded))
+           (h-str (if (> h 0) (list (pluralize h "Hour")) '()))
+           (m-str (if (> m 0) (list (pluralize m "Minute")) '()))
+           (s-str (if (> s 0) (list (pluralize s "Second")) '())))
+      (let ((parts (append h-str m-str s-str)))
+        (if (null? parts)
+            "0 Seconds"
+            (join-strings parts ", ")))))
 
 ;; Part 2.3: add-durations
 (define (simplify-duration dur)
-    (if (and (= (car dur) 0) (not (null? (cdr dur))))
-        (if (and (= (cadr dur) 0) (not (null? (cddr dur))))
-            (cddr dur)
-            (cdr dur))
-        dur))
+    (if (and (= (car dur) 0) (> (length dur) 1))
+        (simplify-duration (cdr dur))
+        (if (null? dur) '(0) dur)))
 
-(define (add-durations dur1 dur2)
-  (let* ((pd1 (pad-duration dur1))
-         (pd2 (pad-duration dur2))
+(define (add-durations leftDuration rightDuration)
+  (let* ((pd1 (pad-duration leftDuration))
+         (pd2 (pad-duration rightDuration))
          (total-s (+ (caddr pd1) (caddr pd2)))
          (total-m (+ (cadr pd1) (cadr pd2)))
          (total-h (+ (car pd1) (car pd2)))
-         (s-rem (remainder total-s 60))
+         (s-final (remainder total-s 60))
          (m-carry (quotient total-s 60))
-         (new-m (+ total-m m-carry))
-         (m-rem (remainder new-m 60))
-         (h-carry (quotient new-m 60))
-         (new-h (+ total-h h-carry)))
-    (let ((result (list new-h m-rem s-rem)))
-        (if (equal? result '(0 0 0))
-            '(0)
-            (simplify-duration result)))))
-
+         (m-interim (+ total-m m-carry))
+         (m-final (remainder m-interim 60))
+         (h-carry (quotient m-interim 60))
+         (h-final (+ total-h h-carry)))
+    (simplify-duration (list h-final m-final s-final))))
 
 ;;-----------------------------------------------------------------------------
-;; Problem 3: Curried Calculations
+;; Problem 3: Curried Calculations (Matches Problem 4 in your template comment)
 ;;-----------------------------------------------------------------------------
 
 (define menu
@@ -150,8 +140,8 @@
     ("spiced tea" . 3.50)
     ("coffee" . 3.50)))
 
-(define (get-price item menu-al)
-  (let ((pair (assoc item menu-al)))
+(define (get-price item menu-list)
+  (let ((pair (assoc item menu-list)))
     (if pair (cdr pair) 0)))
 
 (define (get-discount item discount-list)
@@ -162,19 +152,23 @@
   (define (calculate-order-cost current-order)
     (if (null? current-order)
         0
-        (let ((first-item (car current-order)))
-          (if (number? first-item)
-              (let* ((quantity first-item)
-                     (item-name (cadr current-order))
-                     (base-price (get-price item-name menu))
-                     (discount-percent (get-discount item-name discounts))
-                     (item-cost (* quantity base-price (- 1 (/ discount-percent 100)))))
-                (+ item-cost (calculate-order-cost (cddr current-order))))
+        (let ((first (car current-order))
+              (rest (cdr current-order)))
+          (if (number? first)
+              (let* ((quantity first)
+                     (item-name (car rest))
+                     (price (get-price item-name menu))
+                     (discount (get-discount item-name discounts))
+                     (item-total (* quantity price (- 1 (/ discount 100)))))
+                (+ item-total (calculate-order-cost (cdr rest))))
               (let* ((quantity 1)
-                     (item-name first-item)
-                     (base-price (get-price item-name menu))
-                     (discount-percent (get-discount item-name discounts))
-                     (item-cost (* quantity base-price (- 1 (/ discount-percent 100)))))
-                (+ item-cost (calculate-order-cost (cdr current-order))))))))
+                     (item-name first)
+                     (price (get-price item-name menu))
+                     (discount (get-discount item-name discounts))
+                     (item-total (* quantity price (- 1 (/ discount 100)))))
+                (+ item-total (calculate-order-cost rest)))))))
   (let ((total-cost (calculate-order-cost order)))
-    (/ (round (* total-cost 100)) 100.0)))
+    (/ (round (* total-cost 100)) 100.0)))```
+
+
+Now, upload this new file. The combination of the corrected function names and the correctly saved file should solve the problem.
